@@ -41,8 +41,8 @@ object Services {
         s3Client,
       ),
       users = UsersService.make[F](repositories.users),
-      agents = AgentsService.make[F](),
-      projects = ProjectsService.make[F](),
+      agents = AgentsService.make[F](repositories.agents),
+      projects = ProjectsService.make[F](repositories.projects),
     )
   }
 }

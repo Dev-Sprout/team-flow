@@ -8,6 +8,8 @@ import teamflow.repositories._
 case class Repositories[F[_]](
     users: UsersRepository[F],
     assetsRepository: AssetsRepository[F],
+    projects: ProjectsRepository[F],
+    agents: AgentsRepository[F],
   )
 
 object Repositories {
@@ -18,5 +20,7 @@ object Repositories {
     Repositories(
       users = UsersRepository.make[F],
       assetsRepository = AssetsRepository.make[F],
+      projects = ProjectsRepository.make[F],
+      agents = AgentsRepository.make[F],
     )
 }

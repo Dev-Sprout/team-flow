@@ -13,7 +13,6 @@ import io.circe.Encoder
 import org.http4s.Request
 import org.typelevel.log4cats.Logger
 import pdi.jwt.JwtAlgorithm
-import teamflow.Phone
 import teamflow.Username
 import teamflow.auth.AuthConfig.UserAuthConfig
 import teamflow.auth.utils.AuthMiddleware
