@@ -16,7 +16,7 @@ case class Config(
     redis: RedisConfig,
     s3: AWSConfig,
     jobs: JobsRunnerConfig,
-    githubToken: Option[NonEmptyString]
+    githubToken: Option[NonEmptyString],
   ) {
   lazy val migrations: MigrationsConfig = MigrationsConfig(
     hostname = database.host.value,

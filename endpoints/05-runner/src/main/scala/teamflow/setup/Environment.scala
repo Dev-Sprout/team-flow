@@ -17,7 +17,7 @@ import teamflow.JobsEnvironment
 import teamflow.Repositories
 import teamflow.Services
 import teamflow.auth.impl.Middlewares
-import teamflow.http.{Environment => ServerEnvironment}
+import teamflow.http.{ Environment => ServerEnvironment }
 import teamflow.integration.aws.s3.S3Client
 import teamflow.integrations.github.GithubClient
 import teamflow.support.database.Migrations

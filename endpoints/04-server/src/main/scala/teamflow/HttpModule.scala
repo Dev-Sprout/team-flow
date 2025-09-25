@@ -23,6 +23,9 @@ object HttpModule {
       .of[Routes[F, AuthedUser]](
         new AuthRoutes[F](env.services.auth),
         new AssetsRoutes[F](env.services.assets),
+        new UsersRoutes[F](env.services.users),
+        new AgentsRoutes[F](env.services.agents),
+        new ProjectsRoutes[F](env.services.projects),
       )
       .map { r =>
         Router(

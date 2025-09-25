@@ -30,7 +30,7 @@ CREATE TABLE users (
 	last_name VARCHAR NOT NULL,
 	email VARCHAR NOT NULL,
 	username VARCHAR NOT NULL UNIQUE,
-    role ROLE,
+    role ROLE NOT NULL,
     position POSITION,
     password VARCHAR,
     deleted_at TIMESTAMP WITH TIME
@@ -42,7 +42,7 @@ CREATE TABLE projects (
     url VARCHAR NOT NULL UNIQUE
 );
 
-CREATE TABLE ai_agents (
+CREATE TABLE agents (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     name VARCHAR NOT NULL UNIQUE,

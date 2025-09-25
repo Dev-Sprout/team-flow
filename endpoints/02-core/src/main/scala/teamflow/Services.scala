@@ -16,6 +16,9 @@ import teamflow.support.redis.RedisClient
 case class Services[F[_]](
     auth: Auth[F, AuthedUser],
     assets: AssetsService[F],
+    users: UsersService[F],
+    agents: AgentsService[F],
+    projects: ProjectsService[F],
   )
 
 object Services {
@@ -37,6 +40,9 @@ object Services {
         repositories.assetsRepository,
         s3Client,
       ),
+      users = UsersService.make[F](repositories.users),
+      agents = AgentsService.make[F](),
+      projects = ProjectsService.make[F](),
     )
   }
 }

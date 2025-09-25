@@ -3,20 +3,20 @@ package teamflow.repositories.sql
 import shapeless.HNil
 import skunk._
 import skunk.implicits._
-import teamflow.Phone
 import teamflow.Username
 import teamflow.domain.UserId
 import teamflow.domain.auth.AccessCredentials
 import teamflow.domain.auth.AuthedUser.User
+import teamflow.domain.users.UserFilter
 import teamflow.support.skunk.Sql
 import teamflow.support.skunk.codecs.email
 import teamflow.support.skunk.codecs.nes
-import teamflow.support.skunk.codecs.phone
 import teamflow.support.skunk.codecs.username
 import teamflow.support.skunk.codecs.zonedDateTime
+import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
 private[repositories] object UsersSql extends Sql[UserId] {
-  private val codec =
+  private[repositories] val codec =
     (id *: zonedDateTime *: nes *: nes *: email *: username *: role *: position.opt).to[User]
 
   private val personDecoder: Decoder[AccessCredentials[User]] =
@@ -57,6 +57,48 @@ private[repositories] object UsersSql extends Sql[UserId] {
       .contramap { (u: AccessCredentials[User]) =>
         u.data.id *: u.data.createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *:
           u.data.username *: u.data.role *: u.data.position *: u.password *: EmptyTuple
+      }
+
+  def getByFilter(filter: UserFilter): AppliedFragment = {
+    val searchFilter: List[Option[AppliedFragment]] = List(
+      filter.fullName.map(sql"first_name ILIKE '%' || $nes || '%'"),
+      filter.role.map(sql"role = $role"),
+      filter.position.map(sql"position = $position"),
+    )
+
+    val query: AppliedFragment =
+      void"""
+        SELECT
+          sd.id, sd.created_at, sd.first_name, sd.last_name, sd.email, sd.username, sd.role, sd.position, COUNT(*) OVER()
+        FROM users
+      """
+
+    query.whereAndOpt(searchFilter) |+| void""" ORDER BY sd.created_at DESC"""
+  }
+
+  val findById: Query[UserId, User] =
+    sql"""
+      SELECT
+        id, created_at, first_name, last_name, email, username, role, position
+      FROM users
+      WHERE id = $id AND deleted_at IS NULL
+      LIMIT 1
+    """.query(codec)
+
+  val update: Command[User] =
+    sql"""
+      UPDATE users SET
+        first_name = $nes,
+        last_name = $nes,
+        email = $email,
+        username = $username,
+        role = $role,
+        position = ${position.opt}
+      WHERE id = $id
+    """
+      .command
+      .contramap { (u: User) =>
+        u.firstName *: u.lastName *: u.email *: u.username *: u.role *: u.position *: u.id *: EmptyTuple
       }
 
   val delete: Command[UserId] =
