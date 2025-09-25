@@ -61,7 +61,7 @@ object Environment {
       }
 
       githubClient <- HttpClientFs2Backend.resource[F]().map { implicit backend =>
-        GithubClient.make[F](NonEmptyString.unsafeFrom("test").some)
+        GithubClient.make[F](config.github)
       }
 
       implicit0(random: Random[F]) <- Resource.eval(Random.scalaUtilRandom)

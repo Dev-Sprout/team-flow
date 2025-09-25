@@ -1,4 +1,4 @@
-package teamflow.integrations.github.domain
+package teamflow.integrations.github.domain.commits
 
 import io.circe.generic.extras.ConfiguredJsonCodec
 

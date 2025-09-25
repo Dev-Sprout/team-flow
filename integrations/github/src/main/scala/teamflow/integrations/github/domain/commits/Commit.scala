@@ -1,15 +1,19 @@
-package teamflow.integrations.github.domain
+package teamflow.integrations.github.domain.commits
 
 import io.circe.generic.extras.ConfiguredJsonCodec
 
 @ConfiguredJsonCodec
-case class Parent(
-    sha: String,
+case class Commit(
+    author: Author,
+    committer: Committer,
+    message: String,
+    tree: Tree,
     url: String,
-    htmlUrl: String,
+    commentCount: Int,
+    verification: Verification,
   )
 
-object Parent {
+object Commit {
   implicit val configuration: io.circe.generic.extras.Configuration =
     io.circe.generic.extras.Configuration.default.withSnakeCaseMemberNames
 }

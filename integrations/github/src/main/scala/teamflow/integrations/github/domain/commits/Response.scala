@@ -1,7 +1,6 @@
-package teamflow.integrations.github.domain
+package teamflow.integrations.github.domain.commits
 
-import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.ConfiguredJsonCodec
+import io.circe.generic.extras.{Configuration, ConfiguredJsonCodec}
 
 @ConfiguredJsonCodec
 case class Response(
