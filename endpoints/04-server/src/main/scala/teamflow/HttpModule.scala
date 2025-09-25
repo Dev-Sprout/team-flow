@@ -39,6 +39,6 @@ object HttpModule {
       logger: Logger[F]
     ): Resource[F, F[ExitCode]] =
     HttpServer.make[F](env.config, implicit wbs => allRoutes[F](env)).map { _ =>
-      logger.info(s"Market-Bot http server is started").as(ExitCode.Success)
+      logger.info(s"Team-Flow http server is started").as(ExitCode.Success)
     }
 }

@@ -25,7 +25,7 @@ object DockerImagePlugin extends AutoPlugin {
 
   def serviceSetting(serviceName: String): Seq[Def.Setting[?]] =
     Seq(
-      Docker / packageName         := "task-manager/backend",
+      Docker / packageName         := "teamflow/backend",
       packageDoc / publishArtifact := false,
       packageSrc / publishArtifact := true,
       publish / skip               := false,
