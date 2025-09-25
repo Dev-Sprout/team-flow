@@ -69,11 +69,11 @@ private[repositories] object UsersSql extends Sql[UserId] {
     val query: AppliedFragment =
       void"""
         SELECT
-          sd.id, sd.created_at, sd.first_name, sd.last_name, sd.email, sd.username, sd.role, sd.position, COUNT(*) OVER()
+          id, created_at, first_name, last_name, email, username, role, position, COUNT(*) OVER()
         FROM users
       """
 
-    query.whereAndOpt(searchFilter) |+| void""" ORDER BY sd.created_at DESC"""
+    query.whereAndOpt(searchFilter) |+| void""" ORDER BY created_at DESC"""
   }
 
   val findById: Query[UserId, User] =

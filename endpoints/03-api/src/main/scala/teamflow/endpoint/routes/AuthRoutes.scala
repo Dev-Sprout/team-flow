@@ -32,6 +32,18 @@ final case class AuthRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
     case ar @ GET -> Root / "logout" as user =>
       auth.destroySession(ar.req, user.username) *> NoContent()
 
-    case GET -> Root / "me" as user => Ok(user)
+    case GET -> Root / "me" as user =>
+      Ok(
+        AuthedUser.User(
+          user.id,
+          user.createdAt,
+          user.firstName,
+          user.lastName,
+          user.email,
+          user.username,
+          user.role,
+          user.position,
+        )
+      )
   }
 }
