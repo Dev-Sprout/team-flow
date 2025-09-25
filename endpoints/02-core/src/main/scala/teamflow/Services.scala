@@ -1,0 +1,40 @@
+package teamflow
+
+import cats.data.OptionT
+import cats.effect.Async
+import cats.effect.std.Random
+import org.typelevel.log4cats.Logger
+import teamflow.auth.AuthConfig
+import teamflow.auth.impl.Auth
+import teamflow.domain.auth.AccessCredentials
+import teamflow.domain.auth.AuthedUser
+import teamflow.integration.aws.s3.S3Client
+import teamflow.services._
+import teamflow.support.redis.RedisClient
+
+case class Services[F[_]](
+    auth: Auth[F, AuthedUser],
+    assets: AssetsService[F],
+  )
+
+object Services {
+  def make[F[_]: Async: Logger: Random](
+      config: AuthConfig,
+      repositories: Repositories[F],
+      redis: RedisClient[F],
+      s3Client: S3Client[F],
+    ): Services[F] = {
+    def findUser: Username => F[Option[AccessCredentials[AuthedUser]]] = username =>
+      OptionT(repositories.users.find(username))
+        .map(identity[AccessCredentials[AuthedUser]])
+        .value
+
+    Services[F](
+      auth = Auth.make[F, AuthedUser](config.user, findUser, redis),
+      assets = AssetsService.make[F](
+        repositories.assetsRepository,
+        s3Client,
+      ),
+    )
+  }
+}
