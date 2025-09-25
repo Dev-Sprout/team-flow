@@ -29,6 +29,7 @@ lazy val `endpoints-core` =
       LocalProject("support_redis"),
       LocalProject("integration_aws-s3"),
       LocalProject("integration_telegram"),
+      LocalProject("integration_github"),
     )
     .settings(
       libraryDependencies ++= Seq(
