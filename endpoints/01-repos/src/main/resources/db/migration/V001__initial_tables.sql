@@ -1,4 +1,4 @@
-CREATE TYPE POSITION AS ENUM (
+CREATE TYPE JOB_POSITION AS ENUM (
     'project_manager',
     'fullstack_developer',
     'frontend_developer',
@@ -31,14 +31,14 @@ CREATE TABLE users (
 	email VARCHAR NOT NULL,
 	username VARCHAR NOT NULL UNIQUE,
     role ROLE NOT NULL,
-    position POSITION,
-    password VARCHAR,
-    deleted_at TIMESTAMP WITH TIME
+    "position" JOB_POSITION NULL,
+    password VARCHAR NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE NULL
 );
 
 CREATE TABLE projects (
     id UUID PRIMARY KEY,
-    name VARCHAR,
+    name VARCHAR NULL,
     url VARCHAR NOT NULL UNIQUE
 );
 
@@ -47,5 +47,5 @@ CREATE TABLE agents (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     name VARCHAR NOT NULL UNIQUE,
     prompt VARCHAR NOT NULL,
-    description VARCHAR
+    description VARCHAR NULL
 )
