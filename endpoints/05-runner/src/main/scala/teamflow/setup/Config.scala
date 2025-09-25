@@ -1,8 +1,8 @@
 package teamflow.setup
 
-import eu.timepit.refined.types.string.NonEmptyString
 import teamflow.auth.AuthConfig
 import teamflow.integration.aws.s3.AWSConfig
+import teamflow.integrations.anthropic.AnthropicConfig
 import teamflow.integrations.github.GithubConfig
 import teamflow.support.database.MigrationsConfig
 import teamflow.support.http4s.HttpServerConfig
@@ -18,6 +18,7 @@ case class Config(
     s3: AWSConfig,
     jobs: JobsRunnerConfig,
     github: GithubConfig,
+    anthropic: AnthropicConfig,
   ) {
   lazy val migrations: MigrationsConfig = MigrationsConfig(
     hostname = database.host.value,

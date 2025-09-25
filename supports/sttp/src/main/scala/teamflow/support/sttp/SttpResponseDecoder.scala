@@ -6,6 +6,7 @@ import cats.Traverse
 import cats.syntax.all._
 import io.circe.Decoder
 import sttp.client3._
+import sttp.model.StatusCode
 
 /** Entity that controls process of decoding HTTP response [[H]] to output type [[A]]
   * @tparam F - effect type
@@ -50,4 +51,10 @@ object SttpResponseDecoder {
       ev: MonadError[F, Throwable]
     ): SttpResponseDecoder.CirceJson[F, A] =
     simpleCirceSttpResponseMDecoder[cats.Id, F, A]
+
+  implicit def statusCodeSttpResponseDecoder[F[_]](
+      implicit
+      ev: MonadError[F, Throwable]
+    ): SttpResponseDecoder.CirceJson[F, StatusCode] =
+    response => ev.pure(response.code)
 }

@@ -2,8 +2,8 @@ package teamflow.integrations.github.domain.commits
 
 import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.generic.extras.ConfiguredJsonCodec
+import io.circe.refined._
 import teamflow.Email
-
 import java.time.ZonedDateTime
 
 @ConfiguredJsonCodec

@@ -9,6 +9,7 @@ import teamflow.auth.impl.Auth
 import teamflow.domain.auth.AccessCredentials
 import teamflow.domain.auth.AuthedUser
 import teamflow.integration.aws.s3.S3Client
+import teamflow.integrations.anthropic.AnthropicClient
 import teamflow.integrations.github.GithubClient
 import teamflow.services._
 import teamflow.support.redis.RedisClient
@@ -28,6 +29,7 @@ object Services {
       redis: RedisClient[F],
       s3Client: S3Client[F],
       githubClient: GithubClient[F],
+      anthropicClient: AnthropicClient[F],
     ): Services[F] = {
     def findUser: Username => F[Option[AccessCredentials[AuthedUser]]] = username =>
       OptionT(repositories.users.find(username))

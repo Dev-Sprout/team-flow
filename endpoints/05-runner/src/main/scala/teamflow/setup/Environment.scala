@@ -5,11 +5,9 @@ import cats.effect.Async
 import cats.effect.Resource
 import cats.effect.std.Console
 import cats.effect.std.Random
-import cats.implicits.catsSyntaxOptionId
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.NoOp.instance
 import eu.timepit.refined.pureconfig._
-import eu.timepit.refined.types.string.NonEmptyString
 import org.typelevel.log4cats.Logger
 import pureconfig.generic.auto.exportReader
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
@@ -19,6 +17,7 @@ import teamflow.Services
 import teamflow.auth.impl.Middlewares
 import teamflow.http.{ Environment => ServerEnvironment }
 import teamflow.integration.aws.s3.S3Client
+import teamflow.integrations.anthropic.AnthropicClient
 import teamflow.integrations.github.GithubClient
 import teamflow.support.database.Migrations
 import teamflow.support.redis.RedisClient
@@ -33,6 +32,7 @@ case class Environment[F[_]: Async: MonadThrow: Logger](
     s3Client: S3Client[F],
     redis: RedisClient[F],
     githubClient: GithubClient[F],
+    anthropicClient: AnthropicClient[F],
   ) {
   lazy val jobsEnabled: Boolean = config.jobs.enabled
   lazy val toServer: ServerEnvironment[F] =
@@ -64,6 +64,10 @@ object Environment {
         GithubClient.make[F](config.github)
       }
 
+      anthropicClient <- HttpClientFs2Backend.resource[F]().map { implicit backend =>
+        AnthropicClient.make[F](config.anthropic)
+      }
+
       implicit0(random: Random[F]) <- Resource.eval(Random.scalaUtilRandom)
       s3Client <- S3Client.resource(config.s3)
       services = Services
@@ -73,6 +77,7 @@ object Environment {
           redis,
           s3Client,
           githubClient,
+          anthropicClient,
         )
       middleware = Middlewares.make[F](config.auth, redis)
     } yield Environment[F](
@@ -83,5 +88,6 @@ object Environment {
       s3Client,
       redis,
       githubClient,
+      anthropicClient,
     )
 }
