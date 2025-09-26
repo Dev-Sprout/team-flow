@@ -8,7 +8,8 @@ import org.typelevel.log4cats.Logger
 import teamflow.integrations.github.domain.commits.{Response, CommitDetails, CompareResult}
 import teamflow.integrations.github.domain.contents.{Content, ContentLinks}
 import teamflow.integrations.github.domain.members.Member
-import teamflow.integrations.github.requests.{GetCommits, GetCommitDetails, GetContents, GetMembers, GetRawContent, GetCompare, CheckMember}
+import teamflow.integrations.github.domain.repository.Repository
+import teamflow.integrations.github.requests.{GetCommits, GetCommitDetails, GetContents, GetMembers, GetRawContent, GetCompare, CheckMember, GetRepository}
 import teamflow.support.sttp.SttpBackends
 import teamflow.support.sttp.SttpClient
 import teamflow.support.sttp.SttpClientAuth
@@ -19,6 +20,7 @@ trait GithubClient[F[_]] {
   def getCommitDetails(repo: NonEmptyString, sha: String): F[CommitDetails]
   def getMembers: F[List[Member]]
   def checkMember(username: String): F[StatusCode]
+  def getRepository(repo: NonEmptyString): F[Repository]
   def getContents(repo: NonEmptyString, path: String, ref: Option[String] = None): F[Content]
   def getRawContent(repo: NonEmptyString, sha: String, path: String): F[String]
   def getCompare(repo: NonEmptyString, base: String, head: String): F[CompareResult]
@@ -50,6 +52,9 @@ object GithubClient {
     override def checkMember(username: String): F[StatusCode] =
       client.request(CheckMember(username, config.owner.value, config.token.value))
     
+    override def getRepository(repo: NonEmptyString): F[Repository] =
+      client.request(GetRepository(config.owner.value, repo.value, config.token.value))
+    
     override def getContents(repo: NonEmptyString, path: String, ref: Option[String] = None): F[Content] =
       client.request(GetContents(config.owner.value, repo.value, path, ref, config.token.value))
     
@@ -70,6 +75,59 @@ object GithubClient {
     
     override def checkMember(username: String): F[StatusCode] =
       logger.info(s"Checking member [$username]").map(_ => StatusCode.Ok)
+    
+    override def getRepository(repo: NonEmptyString): F[Repository] =
+      logger.info(s"Getting repository [$repo]").map(_ => 
+        Repository(
+          id = 0,
+          nodeId = "",
+          name = repo.value,
+          fullName = s"owner/${repo.value}",
+          repoPrivate = false,
+          owner = teamflow.integrations.github.domain.repository.RepositoryOwner(
+            login = "owner",
+            id = 0,
+            nodeId = "",
+            avatarUrl = "",
+            gravatarId = "",
+            url = "",
+            htmlUrl = "",
+            followersUrl = "",
+            followingUrl = "",
+            gistsUrl = "",
+            starredUrl = "",
+            subscriptionsUrl = "",
+            organizationsUrl = "",
+            reposUrl = "",
+            eventsUrl = "",
+            receivedEventsUrl = "",
+            ownerType = "Organization",
+            siteAdmin = false
+          ),
+          htmlUrl = "",
+          description = None,
+          fork = false,
+          url = "",
+          forksUrl = "", keysUrl = "", collaboratorsUrl = "", teamsUrl = "", hooksUrl = "",
+          issueEventsUrl = "", eventsUrl = "", assigneesUrl = "", branchesUrl = "", tagsUrl = "",
+          blobsUrl = "", gitTagsUrl = "", gitRefsUrl = "", treesUrl = "", statusesUrl = "",
+          languagesUrl = "", stargazersUrl = "", contributorsUrl = "", subscribersUrl = "",
+          subscriptionUrl = "", commitsUrl = "", gitCommitsUrl = "", commentsUrl = "",
+          issueCommentUrl = "", contentsUrl = "", compareUrl = "", mergesUrl = "",
+          archiveUrl = "", downloadsUrl = "", issuesUrl = "", pullsUrl = "", milestonesUrl = "",
+          notificationsUrl = "", labelsUrl = "", releasesUrl = "", deploymentsUrl = "",
+          createdAt = java.time.ZonedDateTime.now(),
+          updatedAt = java.time.ZonedDateTime.now(),
+          pushedAt = None,
+          gitUrl = "", sshUrl = "", cloneUrl = "", svnUrl = "", homepage = None,
+          size = 0, stargazersCount = 0, watchersCount = 0, language = None,
+          hasIssues = false, hasProjects = false, hasWiki = false, hasPages = false, hasDownloads = false,
+          forksCount = 0, mirrorUrl = None, archived = false, disabled = false, openIssuesCount = 0,
+          license = None, allowForking = true, isTemplate = false, webCommitSignoffRequired = false,
+          topics = List.empty, visibility = "public", forks = 0, openIssues = 0, watchers = 0,
+          defaultBranch = "main", permissions = None, networkCount = None, subscribersCount = None
+        )
+      )
     
     override def getCommitDetails(repo: NonEmptyString, sha: String): F[CommitDetails] =
       logger.info(s"Getting commit details [$repo] sha [$sha]").map(_ => 
