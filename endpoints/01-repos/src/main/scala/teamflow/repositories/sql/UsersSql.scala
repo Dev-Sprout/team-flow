@@ -50,6 +50,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
         $nes,
         $email,
         $username,
+        $bool,
         $role,
         ${position.opt},
         $passwordHash
@@ -57,14 +58,15 @@ private[repositories] object UsersSql extends Sql[UserId] {
     """
       .command
       .contramap { (u: AccessCredentials[User]) =>
-        u.data.id *: u.data.createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *:
-          u.data.username *: u.data.role *: u.data.position *: u.password *: EmptyTuple
+        u.data.id *: u.data.createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *: u.data.username *:
+          u.data.isGithubMember *: u.data.role *: u.data.position *: u.password *: EmptyTuple
       }
 
   def getByFilter(filter: UserFilter): AppliedFragment = {
     val searchFilter: List[Option[AppliedFragment]] = List(
       filter.fullName.map(sql"first_name ILIKE '%' || $nes || '%'"),
       filter.role.map(sql"role = $role"),
+      filter.isGithubMember.map(sql"is_github_member = $bool"),
       filter.position.map(sql"position = $position"),
     )
 
@@ -94,13 +96,14 @@ private[repositories] object UsersSql extends Sql[UserId] {
         last_name = $nes,
         email = $email,
         username = $username,
+        is_github_member = $bool,
         role = $role,
         position = ${position.opt}
       WHERE id = $id
     """
       .command
       .contramap { (u: User) =>
-        u.firstName *: u.lastName *: u.email *: u.username *: u.role *: u.position *: u.id *: EmptyTuple
+        u.firstName *: u.lastName *: u.email *: u.username *: u.isGithubMember *: u.role *: u.position *: u.id *: EmptyTuple
       }
 
   val delete: Command[UserId] =
