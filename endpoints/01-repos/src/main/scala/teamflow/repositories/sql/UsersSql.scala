@@ -75,9 +75,10 @@ private[repositories] object UsersSql extends Sql[UserId] {
         SELECT
           id, created_at, first_name, last_name, email, username, is_github_member, role, position, COUNT(*) OVER()
         FROM users
+        WHERE deleted_at IS NULL
       """
 
-    query.whereAndOpt(searchFilter) |+| void""" ORDER BY created_at DESC"""
+    query.andOpt(searchFilter) |+| void""" ORDER BY created_at DESC"""
   }
 
   val findById: Query[UserId, User] =
@@ -107,5 +108,5 @@ private[repositories] object UsersSql extends Sql[UserId] {
       }
 
   val delete: Command[UserId] =
-    sql"""UPDATE users SET deleted_at = NOW() WHERE id = $id""".command
+    sql"""UPDATE users SET deleted_at = now() WHERE id = $id""".command
 }
