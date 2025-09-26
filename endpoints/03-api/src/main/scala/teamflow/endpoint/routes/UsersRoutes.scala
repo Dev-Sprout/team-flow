@@ -29,7 +29,7 @@ final case class UsersRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
       }
 
     case GET -> Root / "check" / username as _ =>
-        users.check(username).flatMap(Ok(_))
+      users.check(username).flatMap(Ok(_))
 
     case ar @ POST -> Root / "create" as _ =>
       ar.req.decodeR[UserInput] { input =>

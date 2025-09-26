@@ -22,7 +22,7 @@ trait GithubClient[F[_]] {
   def checkMember(username: String): F[StatusCode]
   def getRepository(repo: NonEmptyString): F[Repository]
   def getContents(repo: NonEmptyString, path: String, ref: Option[String] = None): F[Content]
-  def getRawContent(repo: NonEmptyString, sha: String, path: String): F[String]
+  def getRawContent(repo: NonEmptyString, sha: String, path: String): F[Content]
   def getCompare(repo: NonEmptyString, base: String, head: String): F[CompareResult]
 }
 
@@ -58,7 +58,7 @@ object GithubClient {
     override def getContents(repo: NonEmptyString, path: String, ref: Option[String] = None): F[Content] =
       client.request(GetContents(config.owner.value, repo.value, path, ref, config.token.value))
     
-    override def getRawContent(repo: NonEmptyString, sha: String, path: String): F[String] =
+    override def getRawContent(repo: NonEmptyString, sha: String, path: String): F[Content] =
       client.request(GetRawContent(config.owner.value, repo.value, sha, path, config.token.value))
     
     override def getCompare(repo: NonEmptyString, base: String, head: String): F[CompareResult] =
@@ -173,15 +173,30 @@ object GithubClient {
           htmlUrl = "",
           gitUrl = "",
           downloadUrl = None,
-          contentType = "file",
+          `type` = "file",
           content = None,
           encoding = None,
-          links = ContentLinks("", "", "")
+          _links = ContentLinks("", "", "")
         )
       )
     
-    override def getRawContent(repo: NonEmptyString, sha: String, path: String): F[String] =
-      logger.info(s"Getting raw content [$repo] sha [$sha] path [$path]").map(_ => "")
+    override def getRawContent(repo: NonEmptyString, sha: String, path: String): F[Content] =
+      logger.info(s"Getting raw content [$repo] sha [$sha] path [$path]").map(_ => 
+        Content(
+          name = path.split("/").last,
+          path = path,
+          sha = sha,
+          size = 0L,
+          url = "",
+          htmlUrl = "",
+          gitUrl = "",
+          downloadUrl = None,
+          `type` = "file",
+          content = Some("// NoOp GitHub client - no real content available"),
+          encoding = Some("base64"),
+          _links = teamflow.integrations.github.domain.contents.ContentLinks("", "", "")
+        )
+      )
     
     override def getCompare(repo: NonEmptyString, base: String, head: String): F[CompareResult] =
       logger.info(s"Getting compare [$repo] base [$base] head [$head]").map(_ => 

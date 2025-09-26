@@ -58,7 +58,9 @@ private[repositories] object UsersSql extends Sql[UserId] {
     """
       .command
       .contramap { (u: AccessCredentials[User]) =>
-        u.data.id *: u.data.createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *: u.data.username *:
+        u.data.id *: u
+          .data
+          .createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *: u.data.username *:
           u.data.isGithubMember *: u.data.role *: u.data.position *: u.password *: EmptyTuple
       }
 

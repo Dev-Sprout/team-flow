@@ -11,7 +11,7 @@ import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
 private[repositories] object ProjectsSql extends Sql[ProjectId] {
   private[repositories] val codec: Codec[Project] =
-    (id *: nes.opt *: nes).to[Project]
+    (id *: nes *: nes).to[Project]
 
   val insert: Command[Project] =
     sql"""
@@ -46,7 +46,7 @@ private[repositories] object ProjectsSql extends Sql[ProjectId] {
   val update: Command[Project] =
     sql"""
       UPDATE projects SET
-        name = ${nes.opt},
+        name = $nes,
         url = $nes
       WHERE id = $id
     """

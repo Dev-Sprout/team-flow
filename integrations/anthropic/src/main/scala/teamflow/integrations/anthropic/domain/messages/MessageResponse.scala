@@ -5,7 +5,7 @@ import io.circe.generic.extras.ConfiguredJsonCodec
 @ConfiguredJsonCodec
 case class MessageResponse(
     id: String,
-    messageType: String,
+    `type`: String,
     role: String,
     content: List[ContentBlock],
     model: String,

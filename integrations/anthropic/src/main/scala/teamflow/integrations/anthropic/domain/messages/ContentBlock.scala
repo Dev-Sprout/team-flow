@@ -4,7 +4,7 @@ import io.circe.generic.extras.ConfiguredJsonCodec
 
 @ConfiguredJsonCodec
 case class ContentBlock(
-    blockType: String,
+    `type`: String,
     text: String
 )
 

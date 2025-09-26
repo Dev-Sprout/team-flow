@@ -15,7 +15,14 @@ object GetCommits {
     new SttpRequest[GetCommits, List[Response]] {
       val method: Method = Method.GET
       override def path: Path = r => "repos/" + r.owner + "/" + r.repo + "/commits"
-      override def params: Params = r => Map("Authorization" -> r.token)
+      val today = java.time.LocalDate.now()
+      override def params: Params = r => {
+        Map(
+          "Authorization" -> r.token,
+          "since" -> today.atStartOfDay().toString,
+          "per_page" -> "10"
+        )
+      }
 
       def body: Body = noBody
     }

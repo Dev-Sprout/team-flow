@@ -15,7 +15,7 @@ object CreateMessage {
     new SttpRequest[CreateMessage, MessageResponse] {
       val method: Method = Method.POST
       override def path: Path = _ => "v1/messages"
-      override def params: Params = r => Map(
+      override def headers: Headers = r => Map(
         "x-api-key" -> r.apiKey,
         "anthropic-version" -> "2023-06-01",
         "Content-Type" -> "application/json"

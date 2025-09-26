@@ -8,6 +8,7 @@ import org.http4s.circe.CirceEntityCodec.circeEntityEncoder
 import org.http4s.circe.JsonDecoder
 import teamflow.domain.ProjectId
 import teamflow.domain.auth.AuthedUser
+import teamflow.domain.projects.ProjectAnalyze
 import teamflow.domain.projects.ProjectFilter
 import teamflow.domain.projects.ProjectInput
 import teamflow.services.ProjectsService
@@ -30,6 +31,11 @@ final case class ProjectsRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
     case ar @ POST -> Root / "check" as _ =>
       ar.req.decodeR[ProjectInput] { input =>
         projects.check(input).flatMap(Ok(_))
+      }
+
+    case ar @ POST -> Root / "analyze" as _ =>
+      ar.req.decodeR[ProjectAnalyze] { filter =>
+        projects.analyze(filter).flatMap(Ok(_))
       }
 
     case ar @ POST -> Root / "create" as _ =>

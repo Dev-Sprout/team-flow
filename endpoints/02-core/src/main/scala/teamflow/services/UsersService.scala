@@ -32,7 +32,7 @@ trait UsersService[F[_]] {
 object UsersService {
   def make[F[_]: Sync: FileLoader: GenUUID: Calendar: Random](
       usersRepo: UsersRepository[F],
-      githubClient: GithubClient[F]
+      githubClient: GithubClient[F],
     ): UsersService[F] =
     new UsersService[F] {
       override def create(input: UserInput): F[Response] =

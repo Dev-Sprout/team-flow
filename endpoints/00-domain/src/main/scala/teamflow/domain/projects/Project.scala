@@ -9,6 +9,6 @@ import teamflow.syntax.circe._
 @JsonCodec
 case class Project(
     id: ProjectId,
-    name: Option[NonEmptyString],
+    name: NonEmptyString,
     url: NonEmptyString,
   )

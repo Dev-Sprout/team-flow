@@ -12,10 +12,10 @@ case class Content(
     htmlUrl: String,
     gitUrl: String,
     downloadUrl: Option[String],
-    contentType: String,
+    `type`: String,
     content: Option[String],
     encoding: Option[String],
-    links: ContentLinks
+    _links: ContentLinks
 )
 
 object Content {

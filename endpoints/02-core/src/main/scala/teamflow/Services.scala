@@ -44,7 +44,13 @@ object Services {
       ),
       users = UsersService.make[F](repositories.users, githubClient),
       agents = AgentsService.make[F](repositories.agents),
-      projects = ProjectsService.make[F](repositories.projects, githubClient),
+      projects = ProjectsService.make[F](
+        repositories.projects,
+        repositories.agents,
+        repositories.users,
+        githubClient,
+        anthropicClient,
+      ),
     )
   }
 }

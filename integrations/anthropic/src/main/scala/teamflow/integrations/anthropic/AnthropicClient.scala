@@ -28,7 +28,7 @@ object AnthropicClient {
     private lazy val client: SttpClient.CirceJson[F] =
       SttpClient.circeJson(
         config.apiUrl,
-        SttpClientAuth.noAuth,
+        SttpClientAuth.withHeaders(("x-api-key", config.apiKey.value)),
       )
 
     override def createMessage(request: MessageRequest): F[MessageResponse] =
@@ -59,7 +59,7 @@ object AnthropicClient {
       logger.info(s"Creating message with model [${request.model}]").map(_ => 
         MessageResponse(
           id = "msg_noop",
-          messageType = "message",
+          `type` = "message",
           role = "assistant",
           content = List.empty,
           model = request.model,
@@ -73,7 +73,7 @@ object AnthropicClient {
       logger.info(s"Sending message: [$message] with model [${model.getOrElse("default")}]").map(_ => 
         MessageResponse(
           id = "msg_noop",
-          messageType = "message",
+          `type` = "message",
           role = "assistant",
           content = List.empty,
           model = model.getOrElse("claude-3-sonnet-20240229"),
@@ -87,7 +87,7 @@ object AnthropicClient {
       logger.info(s"Having conversation with [${messages.length}] messages").map(_ => 
         MessageResponse(
           id = "msg_noop",
-          messageType = "message",
+          `type` = "message",
           role = "assistant",
           content = List.empty,
           model = model.getOrElse("claude-3-sonnet-20240229"),
