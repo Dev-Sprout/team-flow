@@ -30,11 +30,15 @@ CREATE TABLE users (
 	last_name VARCHAR NOT NULL,
 	email VARCHAR NOT NULL,
 	username VARCHAR NOT NULL UNIQUE,
+	is_github_member BOOLEAN NOT NULL,
     role ROLE NOT NULL,
     "position" JOB_POSITION NULL,
     password VARCHAR NULL,
     deleted_at TIMESTAMP WITH TIME ZONE NULL
 );
+
+INSERT INTO users (id, created_at, first_name, last_name, email, username, is_github_member, role, password) VALUES
+('f43385b5-0ee6-4c8d-a0bf-6f8da8e5b907', NOW(), 'Admin', 'User', 'admin@example.com', 'admin', false, 'admin', '$s0$e0801$5JK3Ogs35C2h5htbXQoeEQ==$N7HgNieSnOajn1FuEB7l4PhC6puBSq+e1E8WUaSJcGY=');
 
 CREATE TABLE projects (
     id UUID PRIMARY KEY,

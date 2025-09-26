@@ -20,7 +20,7 @@ case class RepositoryOwner(
     reposUrl: String,
     eventsUrl: String,
     receivedEventsUrl: String,
-    ownerType: String,
+    `type`: String,
     siteAdmin: Boolean
 )
 

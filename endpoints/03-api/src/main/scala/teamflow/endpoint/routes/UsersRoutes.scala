@@ -13,6 +13,7 @@ import teamflow.domain.users.UserInput
 import teamflow.services.UsersService
 import teamflow.support.http4s.utils.Routes
 import teamflow.support.syntax.http4s.http4SyntaxReqOps
+import teamflow.syntax.refined._
 
 final case class UsersRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
     users: UsersService[F]
@@ -26,6 +27,9 @@ final case class UsersRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
       ar.req.decodeR[UserFilter] { filter =>
         users.get(filter).flatMap(Ok(_))
       }
+
+    case GET -> Root / "check" / username as _ =>
+        users.check(username).flatMap(Ok(_))
 
     case ar @ POST -> Root / "create" as _ =>
       ar.req.decodeR[UserInput] { input =>

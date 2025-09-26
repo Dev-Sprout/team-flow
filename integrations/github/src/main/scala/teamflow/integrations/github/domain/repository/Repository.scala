@@ -9,7 +9,7 @@ case class Repository(
     nodeId: String,
     name: String,
     fullName: String,
-    repoPrivate: Boolean,
+    `private`: Boolean,
     owner: RepositoryOwner,
     htmlUrl: String,
     description: Option[String],

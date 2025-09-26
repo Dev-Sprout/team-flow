@@ -20,6 +20,7 @@ sealed trait AuthedUser {
   val lastName: NonEmptyString
   val email: Email
   val username: Username
+  val isGithubMember: Boolean
   val role: Role
   val position: Option[Position]
 }
@@ -33,6 +34,7 @@ object AuthedUser {
       lastName: NonEmptyString,
       email: Email,
       username: Username,
+      isGithubMember: Boolean,
       role: Role,
       position: Option[Position],
     ) extends AuthedUser

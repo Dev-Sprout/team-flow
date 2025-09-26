@@ -2,6 +2,7 @@ package teamflow.repositories.sql
 
 import shapeless.HNil
 import skunk._
+import skunk.codec.all.bool
 import skunk.implicits._
 import teamflow.Username
 import teamflow.domain.UserId
@@ -17,7 +18,8 @@ import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
 private[repositories] object UsersSql extends Sql[UserId] {
   private[repositories] val codec =
-    (id *: zonedDateTime *: nes *: nes *: email *: username *: role *: position.opt).to[User]
+    (id *: zonedDateTime *: nes *: nes *: email *: username *: bool *: role *: position.opt)
+      .to[User]
 
   private val personDecoder: Decoder[AccessCredentials[User]] =
     (codec *: passwordHash).map {
@@ -31,7 +33,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
   val findByLogin: Query[Username, AccessCredentials[User]] =
     sql"""
       SELECT
-        id, created_at, first_name, last_name, email, username, role, position, password
+        id, created_at, first_name, last_name, email, username, is_github_member, role, position, password
       FROM users
       WHERE
         username = $username
@@ -40,7 +42,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
 
   val insert: Command[AccessCredentials[User]] =
     sql"""
-      INSERT INTO users (id, created_at, first_name, last_name, email, username, role, position, password)
+      INSERT INTO users (id, created_at, first_name, last_name, email, username, is_github_member, role, position, password)
       VALUES (
         $id,
         $zonedDateTime,
@@ -69,7 +71,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
     val query: AppliedFragment =
       void"""
         SELECT
-          id, created_at, first_name, last_name, email, username, role, position, COUNT(*) OVER()
+          id, created_at, first_name, last_name, email, username, is_github_member, role, position, COUNT(*) OVER()
         FROM users
       """
 
@@ -79,7 +81,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
   val findById: Query[UserId, User] =
     sql"""
       SELECT
-        id, created_at, first_name, last_name, email, username, role, position
+        id, created_at, first_name, last_name, email, username, is_github_member, role, position
       FROM users
       WHERE id = $id AND deleted_at IS NULL
       LIMIT 1

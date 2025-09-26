@@ -38,7 +38,7 @@ object GithubClient {
     private lazy val client: SttpClient.CirceJson[F] =
       SttpClient.circeJson(
         config.apiUrl,
-        SttpClientAuth.noAuth,
+        SttpClientAuth.bearer(config.token.value),
       )
     override def getCommits(repo: NonEmptyString): F[List[Response]] =
       client.request(GetCommits(repo.value, config.owner.value, config.token.value))
@@ -83,7 +83,7 @@ object GithubClient {
           nodeId = "",
           name = repo.value,
           fullName = s"owner/${repo.value}",
-          repoPrivate = false,
+          `private` = false,
           owner = teamflow.integrations.github.domain.repository.RepositoryOwner(
             login = "owner",
             id = 0,
@@ -101,7 +101,7 @@ object GithubClient {
             reposUrl = "",
             eventsUrl = "",
             receivedEventsUrl = "",
-            ownerType = "Organization",
+            `type` = "Organization",
             siteAdmin = false
           ),
           htmlUrl = "",

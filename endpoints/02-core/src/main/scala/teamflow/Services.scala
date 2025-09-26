@@ -42,9 +42,9 @@ object Services {
         repositories.assetsRepository,
         s3Client,
       ),
-      users = UsersService.make[F](repositories.users),
+      users = UsersService.make[F](repositories.users, githubClient),
       agents = AgentsService.make[F](repositories.agents),
-      projects = ProjectsService.make[F](repositories.projects),
+      projects = ProjectsService.make[F](repositories.projects, githubClient),
     )
   }
 }

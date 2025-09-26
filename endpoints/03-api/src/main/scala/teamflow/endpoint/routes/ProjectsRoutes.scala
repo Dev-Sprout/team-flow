@@ -27,6 +27,11 @@ final case class ProjectsRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
         projects.get(filter).flatMap(Ok(_))
       }
 
+    case ar @ POST -> Root / "check" as _ =>
+      ar.req.decodeR[ProjectInput] { input =>
+        projects.check(input).flatMap(Ok(_))
+      }
+
     case ar @ POST -> Root / "create" as _ =>
       ar.req.decodeR[ProjectInput] { input =>
         projects.create(input).flatMap(Ok(_))

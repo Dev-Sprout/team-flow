@@ -4,6 +4,7 @@ import cats.data.OptionT
 import cats.effect.Sync
 import cats.effect.std.Random
 import cats.implicits._
+import teamflow.Username
 import teamflow.domain.PaginatedResponse
 import teamflow.domain.Response
 import teamflow.domain.UserId
@@ -14,12 +15,14 @@ import teamflow.domain.users.UserInput
 import teamflow.effects.Calendar
 import teamflow.effects.FileLoader
 import teamflow.effects.GenUUID
+import teamflow.integrations.github.GithubClient
 import teamflow.repositories.UsersRepository
 import teamflow.utils.ID
 import tsec.passwordhashers.jca.SCrypt
 
 trait UsersService[F[_]] {
   def create(input: UserInput): F[Response]
+  def check(username: Username): F[Boolean]
   def get(filters: UserFilter): F[PaginatedResponse[User]]
   def find(id: UserId): F[Option[User]]
   def update(id: UserId, input: UserInput): F[Response]
@@ -28,7 +31,8 @@ trait UsersService[F[_]] {
 
 object UsersService {
   def make[F[_]: Sync: FileLoader: GenUUID: Calendar: Random](
-      usersRepo: UsersRepository[F]
+      usersRepo: UsersRepository[F],
+      githubClient: GithubClient[F]
     ): UsersService[F] =
     new UsersService[F] {
       override def create(input: UserInput): F[Response] =
@@ -37,6 +41,7 @@ object UsersService {
           now <- Calendar[F].currentZonedDateTime
           rawPass <- Random[F].betweenInt(1000, 9999).map(_.toString)
           hash <- SCrypt.hashpw[F](rawPass)
+          isGithubMember <- check(input.username)
           user = User(
             id = id,
             createdAt = now,
@@ -44,12 +49,16 @@ object UsersService {
             lastName = input.lastName,
             email = input.email,
             username = input.username,
+            isGithubMember = isGithubMember,
             role = input.role,
             position = input.position,
           )
           userAndHash = AccessCredentials(user, hash)
           _ <- usersRepo.create(userAndHash)
         } yield Response(id.value, s"${user.username} created with password $rawPass")
+
+      override def check(username: Username): F[Boolean] =
+        githubClient.checkMember(username.value).map(_.isSuccess)
 
       override def get(filters: UserFilter): F[PaginatedResponse[User]] =
         usersRepo.get(filters)

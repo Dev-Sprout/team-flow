@@ -13,6 +13,7 @@ case class UserFilter(
     fullName: Option[NonEmptyString] = None,
     role: Option[Role] = None,
     position: Option[Position] = None,
+    isGithubMember: Boolean,
     limit: Option[PosInt] = None,
     page: Option[PosInt] = None,
   )
