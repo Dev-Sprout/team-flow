@@ -28,6 +28,7 @@ import teamflow.effects.Calendar
 import teamflow.effects.GenUUID
 import teamflow.exception.AError
 import teamflow.integrations.anthropic.AnthropicClient
+import teamflow.integrations.anthropic.domain.messages
 import teamflow.integrations.github.GithubClient
 import teamflow.integrations.github.domain.commits.CommitDetails
 import teamflow.integrations.github.domain.commits.{ Response => GitHubResponse }
@@ -203,10 +204,10 @@ object AnalysisService {
         ): F[List[GitHubResponse]] =
         for {
           allCommits <- githubClient.getCommits(project.name, from, to)
-          targetUserEmails = targetUsers.map(_.email).toSet
+          targetUserEmails = targetUsers.map(_.username.toString).toSet
           filteredCommits = allCommits.filter { commit =>
-            targetUserEmails.contains(commit.commit.author.email) ||
-            targetUserEmails.contains(commit.commit.committer.email)
+            targetUserEmails.contains(commit.author.login) ||
+            targetUserEmails.contains(commit.committer.login)
           }
         } yield filteredCommits
 
@@ -219,21 +220,28 @@ object AnalysisService {
       private def buildAnalysisPrompt(
           commitDetails: List[CommitDetails],
           targetUsers: List[AuthedUser.User],
-          agent: Agent,
         ): String = {
         val userInfo = targetUsers
           .map(u => s"- ${u.firstName} ${u.lastName} (${u.email})")
           .mkString("\n")
 
-        val commitInfo = commitDetails
+        // For comprehensive analysis, include more commits for monthly reports
+        val limitedCommits = if (commitDetails.length > 50) commitDetails.take(50) else commitDetails
+        
+        val commitInfo = limitedCommits
           .map { commit =>
-            val limitedFiles = commit.files.take(5).filter(_.changes <= 200)
+            val limitedFiles = commit.files.take(5).filter(_.changes <= 150)
             val fileChanges = limitedFiles
               .map { file =>
+                // Truncate patch content to prevent huge prompts
+                val truncatedPatch = file.patch.map { p =>
+                  if (p.length > 800) s"${p.take(800)}...[truncated]"
+                  else p
+                }
                 s"""File: ${file.filename}
                |Status: ${file.status}
                |Changes: +${file.additions} -${file.deletions}
-               |${file.patch.map(p => s"Patch:\n$p").getOrElse("")}
+               |${truncatedPatch.map(p => s"Patch:\n$p").getOrElse("")}
                |""".stripMargin
               }
               .mkString("\n---\n")
@@ -241,7 +249,7 @@ object AnalysisService {
             s"""Commit: ${commit.sha.take(8)}
              |Author: ${commit.commit.author.name} <${commit.commit.author.email}>
              |Date: ${commit.commit.author.date}
-             |Message: ${commit.commit.message}
+             |Message: ${commit.commit.message.take(300)}${if (commit.commit.message.length > 300) "..." else ""}
              |Files Changed:
              |$fileChanges
              |Stats: +${commit.stats.additions} -${commit.stats.deletions}
@@ -249,9 +257,7 @@ object AnalysisService {
           }
           .mkString("\n" + "=" * 60 + "\n")
 
-        s"""${agent.prompt.value}
-
-           |Please analyze the following code commits made by these developers:
+        val basePrompt = s"""Please analyze the following code commits made by these developers:
 
            |Target Developers:
            |$userInfo
@@ -268,20 +274,64 @@ object AnalysisService {
 
            |Focus on constructive feedback and actionable insights.
            |""".stripMargin
+           
+        // If prompt is too long, truncate commit info further
+        if (basePrompt.length > 180000) {
+          val truncatedCommitInfo = limitedCommits.take(25)
+            .map { commit =>
+              s"""Commit: ${commit.sha.take(8)}
+               |Author: ${commit.commit.author.name}
+               |Message: ${commit.commit.message.take(100)}${if (commit.commit.message.length > 100) "..." else ""}
+               |Files: ${commit.files.take(2).map(_.filename).mkString(", ")}
+               |Stats: +${commit.stats.additions} -${commit.stats.deletions}
+               |""".stripMargin
+            }
+            .mkString("\n" + "=" * 40 + "\n")
+            
+          s"""Please analyze the following code commits made by these developers:
+
+             |Target Developers:
+             |$userInfo
+
+             |Code Commits to Analyze (summarized):
+             |$truncatedCommitInfo
+
+             |Please provide a comprehensive analysis including:
+             |1. Code quality assessment
+             |2. Coding patterns and practices used  
+             |3. Potential issues or improvements
+             |4. Summary of changes and their impact
+             |5. Developer-specific insights and recommendations
+
+             |Focus on constructive feedback and actionable insights.
+             |""".stripMargin
+        } else {
+          basePrompt
+        }
       }
 
-      private def runAIAnalysis(prompt: String): F[String] =
+      private def runAIAnalysis(prompt: String, agent: Agent): F[String] = {
+        val messageRequest = messages.MessageRequest(
+          model = "claude-sonnet-4-20250514",
+          maxTokens = 64000,
+          messages = List(messages.InputMessage.user(prompt)),
+          system = Some(agent.prompt.value),
+          temperature = Some(0.1), // Low temperature for consistent, analytical responses
+          topP = Some(0.95),
+          stopSequences = Some(List("---END---", "## XULOSA", "[ANALYSIS_COMPLETE]"))
+        )
         for {
-          response <- anthropicClient.sendMessage(
-            message = prompt,
-            maxTokens = Some(4000),
-          )
+          response <- anthropicClient.createMessage(messageRequest)
           analysisResult = response
             .content
             .filter(_.`type` == "text")
             .map(_.text)
             .mkString("\n")
+            .replaceAll("#", "")
+            .replaceAll("/*", "")
+            .replaceAll("`", "")
         } yield analysisResult
+      }
 
       private def saveAnalysisResult(
           id: AnalysisId,
@@ -325,10 +375,10 @@ object AnalysisService {
             30.minutes,
           )
           commitDetails <- fetchCommitDetails(project, relevantCommits)
-          prompt = buildAnalysisPrompt(commitDetails, targetUsers, agent)
+          prompt = buildAnalysisPrompt(commitDetails, targetUsers)
           _ <- redisClient.del(s"analysis:$id")
           _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Analyzing.entryName, 30.minutes)
-          analysisResult <- runAIAnalysis(prompt)
+          analysisResult <- runAIAnalysis(prompt, agent)
           _ <- redisClient.del(s"analysis:$id")
           _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Success.entryName, 10.minutes)
           end <- Calendar[F].currentDateTime
