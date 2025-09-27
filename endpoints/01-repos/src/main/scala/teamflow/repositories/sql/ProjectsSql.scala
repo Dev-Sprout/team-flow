@@ -43,6 +43,13 @@ private[repositories] object ProjectsSql extends Sql[ProjectId] {
       LIMIT 1
     """.query(codec)
 
+  def findByIds(ids: List[ProjectId]): Query[ids.type, Project] =
+    sql"""
+      SELECT id, name, url
+      FROM projects
+      WHERE id IN (${id.values.list(ids)})
+    """.query(codec)
+
   val update: Command[Project] =
     sql"""
       UPDATE projects SET

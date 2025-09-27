@@ -52,7 +52,7 @@ CREATE TABLE agents (
     name VARCHAR NOT NULL UNIQUE,
     prompt VARCHAR NOT NULL,
     description VARCHAR NULL
-)
+);
 
 CREATE TABLE analyses (
     id UUID PRIMARY KEY,

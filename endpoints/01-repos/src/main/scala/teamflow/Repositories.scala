@@ -10,19 +10,21 @@ case class Repositories[F[_]](
     assetsRepository: AssetsRepository[F],
     projects: ProjectsRepository[F],
     agents: AgentsRepository[F],
-    analyses: AnalysesRepository[F],
+    analyses: AnalysisRepository[F],
   )
 
 object Repositories {
   def make[F[_]: Async](
       implicit
       session: Resource[F, Session[F]]
-    ): Repositories[F] =
+    ): Repositories[F] = {
+    val users = UsersRepository.make[F]
     Repositories(
-      users = UsersRepository.make[F],
+      users = users,
       assetsRepository = AssetsRepository.make[F],
       projects = ProjectsRepository.make[F],
       agents = AgentsRepository.make[F],
-      analyses = AnalysesRepository.make[F],
+      analyses = AnalysisRepository.make[F](users),
     )
+  }
 }

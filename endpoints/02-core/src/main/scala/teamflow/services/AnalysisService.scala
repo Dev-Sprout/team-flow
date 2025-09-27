@@ -1,5 +1,9 @@
 package teamflow.services
 
+import java.time.LocalDate
+
+import scala.concurrent.duration.DurationInt
+
 import cats.data.NonEmptyList
 import cats.data.OptionT
 import cats.effect.Concurrent
@@ -14,8 +18,10 @@ import teamflow.domain.UserId
 import teamflow.domain.agents.Agent
 import teamflow.domain.analyses.Analysis
 import teamflow.domain.analyses.AnalysisFilter
+import teamflow.domain.analyses.AnalysisInfo
 import teamflow.domain.analyses.AnalysisInput
 import teamflow.domain.auth.AuthedUser
+import teamflow.domain.enums.AnalysisStatus
 import teamflow.domain.projects.Project
 import teamflow.domain.users.UserFilter
 import teamflow.effects.Calendar
@@ -26,48 +32,125 @@ import teamflow.integrations.github.GithubClient
 import teamflow.integrations.github.domain.commits.CommitDetails
 import teamflow.integrations.github.domain.commits.{ Response => GitHubResponse }
 import teamflow.repositories.AgentsRepository
-import teamflow.repositories.AnalysesRepository
+import teamflow.repositories.AnalysisRepository
 import teamflow.repositories.ProjectsRepository
 import teamflow.repositories.UsersRepository
+import teamflow.support.redis.RedisClient
 import teamflow.utils.ID
 
-trait AnalysesService[F[_]] {
+trait AnalysisService[F[_]] {
   def analyze(input: AnalysisInput): F[Response]
-  def get(filters: AnalysisFilter): F[PaginatedResponse[Analysis]]
-  def find(id: AnalysisId): F[Option[Analysis]]
-  def findByUserId(userId: UserId): F[List[Analysis]]
+  def get(filters: AnalysisFilter): F[PaginatedResponse[AnalysisInfo]]
+  def find(id: AnalysisId): F[Option[AnalysisInfo]]
+  def check(id: AnalysisId): F[Option[AnalysisStatus]]
+  def findByUserId(userId: UserId): F[List[AnalysisInfo]]
   def delete(id: AnalysisId): F[Response]
   def linkUserToAnalysis(userId: UserId, analysisId: AnalysisId): F[Response]
   def unlinkUserFromAnalysis(userId: UserId, analysisId: AnalysisId): F[Response]
 }
 
-object AnalysesService {
+object AnalysisService {
   def make[F[_]: Concurrent: GenUUID: Calendar](
-      analysesRepo: AnalysesRepository[F],
+      analysesRepo: AnalysisRepository[F],
       projectsRepo: ProjectsRepository[F],
       agentsRepo: AgentsRepository[F],
       usersRepo: UsersRepository[F],
       githubClient: GithubClient[F],
       anthropicClient: AnthropicClient[F],
-    ): AnalysesService[F] =
-    new AnalysesService[F] {
+      redisClient: RedisClient[F],
+    ): AnalysisService[F] =
+    new AnalysisService[F] {
       override def analyze(input: AnalysisInput): F[Response] =
         for {
           id <- ID.make[F, AnalysisId]
           _ <- Concurrent[F].start(processAnalysis(id, input)).void
-        } yield Response(id.value, "Analysis started")
+          _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Started.entryName, 30.minutes)
+        } yield Response(id.value, AnalysisStatus.Started.entryName)
 
-      override def get(filters: AnalysisFilter): F[PaginatedResponse[Analysis]] =
-        analysesRepo.get(filters)
+      override def get(filters: AnalysisFilter): F[PaginatedResponse[AnalysisInfo]] =
+        for {
+          analysisPage <- analysesRepo.get(filters)
+          analyses = analysisPage.data
 
-      override def find(id: AnalysisId): F[Option[Analysis]] =
-        analysesRepo.findById(id)
+          // Collect unique IDs
+          projectIds = analyses.map(_.projectId).distinct
+          agentIds = analyses.map(_.agentId).distinct
+          analysisIds = analyses.map(_.id)
 
-      override def findByUserId(userId: UserId): F[List[Analysis]] =
-        analysesRepo.findByUserId(userId)
+          // Batch fetch all data
+          projectsMap <- projectsRepo.findByIds(projectIds)
+          agentsMap <- agentsRepo.findByIds(agentIds)
+          usersMapByAnalysis <- analysisIds
+            .traverse(id => analysesRepo.findUsersByAnalysisId(id).map(id -> _))
+            .map(_.toMap)
+
+          // Build AnalysisInfo objects
+          analysisInfos = analyses.map { analysis =>
+            AnalysisInfo(
+              id = analysis.id,
+              createdAt = analysis.createdAt,
+              project = projectsMap(analysis.projectId),
+              agent = agentsMap(analysis.agentId),
+              users = usersMapByAnalysis.getOrElse(analysis.id, List.empty),
+              response = analysis.response,
+            )
+          }
+        } yield PaginatedResponse(analysisInfos, analysisPage.total)
+
+      override def find(id: AnalysisId): F[Option[AnalysisInfo]] =
+        analysesRepo.findById(id).flatMap {
+          case Some(analysis) =>
+            for {
+              projectsMap <- projectsRepo.findByIds(List(analysis.projectId))
+              agentsMap <- agentsRepo.findByIds(List(analysis.agentId))
+              users <- analysesRepo.findUsersByAnalysisId(analysis.id)
+            } yield Some(
+              AnalysisInfo(
+                id = analysis.id,
+                createdAt = analysis.createdAt,
+                project = projectsMap(analysis.projectId),
+                agent = agentsMap(analysis.agentId),
+                users = users,
+                response = analysis.response,
+              )
+            )
+          case None => Concurrent[F].pure(None)
+        }
+
+      override def check(id: AnalysisId): F[Option[AnalysisStatus]] =
+        redisClient.get(s"analysis:$id").map(_.flatMap(s => AnalysisStatus.withNameOption(s)))
+
+      override def findByUserId(userId: UserId): F[List[AnalysisInfo]] =
+        for {
+          analyses <- analysesRepo.findByUserId(userId)
+
+          // Collect unique IDs
+          projectIds = analyses.map(_.projectId).distinct
+          agentIds = analyses.map(_.agentId).distinct
+          analysisIds = analyses.map(_.id)
+
+          // Batch fetch all data
+          projectsMap <- projectsRepo.findByIds(projectIds)
+          agentsMap <- agentsRepo.findByIds(agentIds)
+          usersMapByAnalysis <- analysisIds
+            .traverse(id => analysesRepo.findUsersByAnalysisId(id).map(id -> _))
+            .map(_.toMap)
+
+          // Build AnalysisInfo objects
+          analysisInfos = analyses.map { analysis =>
+            AnalysisInfo(
+              id = analysis.id,
+              createdAt = analysis.createdAt,
+              project = projectsMap(analysis.projectId),
+              agent = agentsMap(analysis.agentId),
+              users = usersMapByAnalysis.getOrElse(analysis.id, List.empty),
+              response = analysis.response,
+            )
+          }
+        } yield analysisInfos
 
       override def delete(id: AnalysisId): F[Response] =
-        OptionT(find(id))
+        OptionT(analysesRepo.findById(id))
           .semiflatMap { _ =>
             analysesRepo.delete(id) >>
               Response(id.value, "Analysis deleted").pure[F]
@@ -106,16 +189,17 @@ object AnalysesService {
       private def fetchRelevantCommits(
           project: Project,
           targetUsers: List[AuthedUser.User],
+          from: LocalDate,
+          to: LocalDate,
         ): F[List[GitHubResponse]] =
         for {
-          allCommits <- githubClient.getCommits(project.name)
+          allCommits <- githubClient.getCommits(project.name, from, to)
           targetUserEmails = targetUsers.map(_.email).toSet
           filteredCommits = allCommits.filter { commit =>
             targetUserEmails.contains(commit.commit.author.email) ||
             targetUserEmails.contains(commit.commit.committer.email)
           }
-          limitedCommits = filteredCommits.take(10)
-        } yield limitedCommits
+        } yield filteredCommits
 
       private def fetchCommitDetails(
           project: Project,
@@ -195,6 +279,7 @@ object AnalysesService {
           projectId: ProjectId,
           agentId: AgentId,
           result: String,
+          targetUsers: List[AuthedUser.User],
         ): F[Unit] =
         for {
           now <- Calendar[F].currentZonedDateTime
@@ -206,6 +291,7 @@ object AnalysesService {
             response = NonEmptyString.unsafeFrom(result),
           )
           _ <- analysesRepo.create(analysis)
+          _ <- analysesRepo.linkUsersToAnalysis(targetUsers.map(_.id), id)
         } yield ()
 
       private def processAnalysis(id: AnalysisId, filter: AnalysisInput): F[Unit] =
@@ -213,16 +299,29 @@ object AnalysesService {
           targetUsers <- fetchTargetUsers(filter.userIds)
           project <- fetchProjectInfo(filter.projectId)
           agent <- fetchAgentInfo(filter.agentId)
-          relevantCommits <- fetchRelevantCommits(project, targetUsers)
+          _ <- redisClient.del(s"analysis:$id")
+          _ <- redisClient.put(s"analysis:$id", AnalysisStatus.GetCommits.entryName, 30.minutes)
+          relevantCommits <- fetchRelevantCommits(project, targetUsers, filter.from, filter.to)
+          _ <- redisClient.del(s"analysis:$id")
+          _ <- redisClient.put(
+            s"analysis:$id",
+            AnalysisStatus.GetCommitDetails.entryName,
+            30.minutes,
+          )
           commitDetails <- fetchCommitDetails(project, relevantCommits)
           prompt = buildAnalysisPrompt(commitDetails, targetUsers, agent)
+          _ <- redisClient.del(s"analysis:$id")
+          _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Analyzing.entryName, 30.minutes)
           analysisResult <- runAIAnalysis(prompt)
-          _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, analysisResult)
+          _ <- redisClient.del(s"analysis:$id")
+          _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Success.entryName, 10.minutes)
+          _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, analysisResult, targetUsers)
         } yield ()).handleErrorWith { error =>
           val errorMessage = s"Analysis failed: ${error.getMessage}"
           for {
-            _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, errorMessage)
-            _ <- AError.BadRequest(errorMessage).raiseError[F, Unit]
+            _ <- redisClient.del(s"analysis:$id")
+            _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Failed.entryName, 10.minutes)
+            _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, errorMessage, List.empty)
           } yield ()
         }
     }

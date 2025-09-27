@@ -92,6 +92,13 @@ private[repositories] object UsersSql extends Sql[UserId] {
       LIMIT 1
     """.query(codec)
 
+  def findByIds(ids: List[UserId]): Query[ids.type, User] =
+    sql"""
+      SELECT id, created_at, first_name, last_name, email, username, is_github_member, role, position
+      FROM users
+      WHERE id IN (${id.values.list(ids)}) AND deleted_at IS NULL
+    """.query(codec)
+
   val update: Command[User] =
     sql"""
       UPDATE users SET

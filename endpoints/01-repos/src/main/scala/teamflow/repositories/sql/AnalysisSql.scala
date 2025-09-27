@@ -1,10 +1,9 @@
 package teamflow.repositories.sql
 
+import org.typelevel.twiddles.EmptyTuple
 import skunk._
 import skunk.implicits._
-import teamflow.domain.AgentId
 import teamflow.domain.AnalysisId
-import teamflow.domain.ProjectId
 import teamflow.domain.UserId
 import teamflow.domain.analyses.Analysis
 import teamflow.domain.analyses.AnalysisFilter
@@ -13,7 +12,7 @@ import teamflow.support.skunk.codecs.nes
 import teamflow.support.skunk.codecs.zonedDateTime
 import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
-private[repositories] object AnalysesSql extends Sql[AnalysisId] {
+private[repositories] object AnalysisSql extends Sql[AnalysisId] {
   private[repositories] val codec: Codec[Analysis] =
     (id *: zonedDateTime *: ProjectsSql.id *: AgentsSql.id *: nes).to[Analysis]
 
@@ -24,21 +23,30 @@ private[repositories] object AnalysesSql extends Sql[AnalysisId] {
     """.command
 
   def getByFilter(filter: AnalysisFilter): AppliedFragment = {
+    val baseQuery =
+      if (filter.userId.isDefined)
+        // If userId filter is present, use INNER JOIN
+        void"""
+        SELECT
+          a.id, a.created_at, a.project_id, a.agent_id, a.response, COUNT(*) OVER()
+        FROM analyses a
+        INNER JOIN user_analyses ua ON ua.analysis_id = a.id
+      """
+      else
+        // If no userId filter, select directly from analyses
+        void"""
+        SELECT
+          id, created_at, project_id, agent_id, response, COUNT(*) OVER()
+        FROM analyses a
+      """
+
     val searchFilter: List[Option[AppliedFragment]] = List(
       filter.projectId.map(sql"a.project_id = ${ProjectsSql.id}"),
       filter.agentId.map(sql"a.agent_id = ${AgentsSql.id}"),
       filter.userId.map(sql"ua.user_id = ${UsersSql.id}"),
     )
 
-    val query: AppliedFragment =
-      void"""
-        SELECT
-          id, created_at, project_id, agent_id, response, COUNT(*) OVER()
-        FROM analyses a
-        INNER JOIN user_analyses ua ON ua.analysis_id = a.id
-      """
-
-    query.whereAndOpt(searchFilter) |+| void""" ORDER BY a.created_at DESC"""
+    baseQuery.whereAndOpt(searchFilter) |+| void""" ORDER BY a.created_at DESC"""
   }
 
   val findById: Query[AnalysisId, Analysis] =
@@ -83,9 +91,25 @@ private[repositories] object AnalysesSql extends Sql[AnalysisId] {
       VALUES (${UsersSql.id}, $id)
     """.command
 
+  def insertBatchUserAnalysis(
+      userAnalyses: List[UserId *: AnalysisId *: EmptyTuple]
+    ): Command[userAnalyses.type] =
+    sql"""
+      INSERT INTO user_analyses (user_id, analysis_id)
+      VALUES ${(UsersSql.id *: id).values.list(userAnalyses)}
+      ON CONFLICT DO NOTHING
+    """.command
+
   val deleteUserAnalysis: Command[UserId *: AnalysisId *: EmptyTuple] =
     sql"""
       DELETE FROM user_analyses 
       WHERE user_id = ${UsersSql.id} AND analysis_id = $id
     """.command
+
+  val findUsersByAnalysisId: Query[AnalysisId, UserId] =
+    sql"""
+      SELECT user_id
+      FROM user_analyses
+      WHERE analysis_id = $id
+    """.query(UsersSql.id)
 }

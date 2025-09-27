@@ -26,6 +26,7 @@ object HttpModule {
         new UsersRoutes[F](env.services.users),
         new AgentsRoutes[F](env.services.agents),
         new ProjectsRoutes[F](env.services.projects),
+        new AnalysisRoutes[F](env.services.analyses),
       )
       .map { r =>
         Router(

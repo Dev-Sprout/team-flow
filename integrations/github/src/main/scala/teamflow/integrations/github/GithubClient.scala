@@ -5,18 +5,20 @@ import cats.effect.Sync
 import cats.implicits.toFunctorOps
 import eu.timepit.refined.types.string.NonEmptyString
 import org.typelevel.log4cats.Logger
-import teamflow.integrations.github.domain.commits.{Response, CommitDetails, CompareResult}
+import teamflow.integrations.github.domain.commits.{CommitDetails, CompareResult, Response}
 import teamflow.integrations.github.domain.contents.{Content, ContentLinks}
 import teamflow.integrations.github.domain.members.Member
 import teamflow.integrations.github.domain.repository.Repository
-import teamflow.integrations.github.requests.{GetCommits, GetCommitDetails, GetContents, GetMembers, GetRawContent, GetCompare, CheckMember, GetRepository}
+import teamflow.integrations.github.requests.{CheckMember, GetCommitDetails, GetCommits, GetCompare, GetContents, GetMembers, GetRawContent, GetRepository}
 import teamflow.support.sttp.SttpBackends
 import teamflow.support.sttp.SttpClient
 import teamflow.support.sttp.SttpClientAuth
 import sttp.model.StatusCode
 
+import java.time.LocalDate
+
 trait GithubClient[F[_]] {
-  def getCommits(repo: NonEmptyString): F[List[Response]]
+  def getCommits(repo: NonEmptyString, from: LocalDate, to: LocalDate): F[List[Response]]
   def getCommitDetails(repo: NonEmptyString, sha: String): F[CommitDetails]
   def getMembers: F[List[Member]]
   def checkMember(username: String): F[StatusCode]
@@ -40,8 +42,8 @@ object GithubClient {
         config.apiUrl,
         SttpClientAuth.bearer(config.token.value),
       )
-    override def getCommits(repo: NonEmptyString): F[List[Response]] =
-      client.request(GetCommits(repo.value, config.owner.value, config.token.value))
+    override def getCommits(repo: NonEmptyString, from: LocalDate, to: LocalDate): F[List[Response]] =
+      client.request(GetCommits(repo.value, config.owner.value, config.token.value, from, to))
     
     override def getCommitDetails(repo: NonEmptyString, sha: String): F[CommitDetails] =
       client.request(GetCommitDetails(config.owner.value, repo.value, sha, config.token.value))
@@ -67,7 +69,7 @@ object GithubClient {
 
   private class NoOpGithubClientImpl[F[_]: Applicative](implicit logger: Logger[F])
       extends GithubClient[F] {
-    override def getCommits(repo: NonEmptyString): F[List[Response]] =
+    override def getCommits(repo: NonEmptyString, from: LocalDate, to: LocalDate): F[List[Response]] =
       logger.info(s"Getting commits [$repo]").map(_ => List.empty)
     
     override def getMembers: F[List[Member]] =

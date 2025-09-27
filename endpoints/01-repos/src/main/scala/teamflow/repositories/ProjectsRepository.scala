@@ -1,7 +1,7 @@
 package teamflow.repositories
 
 import cats.effect.Resource
-import cats.implicits.toFunctorOps
+import cats.implicits._
 import skunk._
 import skunk.codec.all.int8
 import teamflow.domain.PaginatedResponse
@@ -14,6 +14,7 @@ import teamflow.support.skunk.syntax.all._
 trait ProjectsRepository[F[_]] {
   def get(filter: ProjectFilter): F[PaginatedResponse[Project]]
   def findById(id: ProjectId): F[Option[Project]]
+  def findByIds(ids: List[ProjectId]): F[Map[ProjectId, Project]]
   def create(project: Project): F[Unit]
   def update(project: Project): F[Unit]
   def delete(id: ProjectId): F[Unit]
@@ -35,6 +36,11 @@ object ProjectsRepository {
 
     override def findById(id: ProjectId): F[Option[Project]] =
       ProjectsSql.findById.queryOption(id)
+
+    override def findByIds(ids: List[ProjectId]): F[Map[ProjectId, Project]] =
+      if (ids.isEmpty) Map.empty[ProjectId, Project].pure[F]
+      else
+        ProjectsSql.findByIds(ids).map(p => p.id -> p).queryList(ids).map(_.toMap)
 
     override def create(project: Project): F[Unit] =
       ProjectsSql.insert.execute(project)

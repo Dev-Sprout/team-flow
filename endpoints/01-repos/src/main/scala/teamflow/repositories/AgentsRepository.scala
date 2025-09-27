@@ -1,7 +1,7 @@
 package teamflow.repositories
 
 import cats.effect.Resource
-import cats.implicits.toFunctorOps
+import cats.implicits._
 import skunk._
 import skunk.codec.all.int8
 import teamflow.domain.AgentId
@@ -14,6 +14,7 @@ import teamflow.support.skunk.syntax.all._
 trait AgentsRepository[F[_]] {
   def get(filter: AgentFilter): F[PaginatedResponse[Agent]]
   def findById(id: AgentId): F[Option[Agent]]
+  def findByIds(ids: List[AgentId]): F[Map[AgentId, Agent]]
   def create(agent: Agent): F[Unit]
   def update(agent: Agent): F[Unit]
   def delete(id: AgentId): F[Unit]
@@ -35,6 +36,15 @@ object AgentsRepository {
 
     override def findById(id: AgentId): F[Option[Agent]] =
       AgentsSql.findById.queryOption(id)
+
+    override def findByIds(ids: List[AgentId]): F[Map[AgentId, Agent]] =
+      if (ids.isEmpty) Map.empty[AgentId, Agent].pure[F]
+      else
+        AgentsSql
+          .findByIds(ids)
+          .map(a => a.id -> a)
+          .queryList(ids)
+          .map(_.toMap)
 
     override def create(agent: Agent): F[Unit] =
       AgentsSql.insert.execute(agent)

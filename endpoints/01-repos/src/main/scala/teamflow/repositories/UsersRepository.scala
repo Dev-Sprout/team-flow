@@ -1,7 +1,7 @@
 package teamflow.repositories
 
 import cats.effect.Resource
-import cats.implicits.toFunctorOps
+import cats.implicits._
 import skunk._
 import skunk.codec.all.int8
 import teamflow.Username
@@ -16,6 +16,7 @@ import teamflow.support.skunk.syntax.all._
 trait UsersRepository[F[_]] {
   def get(filter: UserFilter): F[PaginatedResponse[User]]
   def findById(id: UserId): F[Option[User]]
+  def findByIds(ids: List[UserId]): F[Map[UserId, User]]
   def find(username: Username): F[Option[AccessCredentials[User]]]
   def create(userAndHash: AccessCredentials[User]): F[Unit]
   def update(user: User): F[Unit]
@@ -44,6 +45,11 @@ object UsersRepository {
 
     override def findById(id: UserId): F[Option[User]] =
       UsersSql.findById.queryOption(id)
+
+    override def findByIds(ids: List[UserId]): F[Map[UserId, User]] =
+      if (ids.isEmpty) Map.empty[UserId, User].pure[F]
+      else
+        UsersSql.findByIds(ids).map(u => u.id -> u).queryList(ids).map(_.toMap)
 
     override def update(user: User): F[Unit] =
       UsersSql.update.execute(user)

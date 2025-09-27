@@ -44,6 +44,13 @@ private[repositories] object AgentsSql extends Sql[AgentId] {
       LIMIT 1
     """.query(codec)
 
+  def findByIds(ids: List[AgentId]): Query[ids.type, Agent] =
+    sql"""
+      SELECT id, created_at, name, prompt, description
+      FROM agents
+      WHERE id IN (${id.values.list(ids)})
+    """.query(codec)
+
   val update: Command[Agent] =
     sql"""
       UPDATE agents SET
