@@ -128,3 +128,40 @@ Environment variables override defaults in `reference.conf`. Key configurations:
 - Database connection via `POSTGRES_*` variables
 - Redis via `REDIS_URI` 
 - External API keys via service-specific environment variables
+
+## Integration Patterns
+
+### STTP Client Architecture
+The application uses a custom STTP wrapper (`supports/sttp/`) for all HTTP integrations:
+
+- **SttpClient trait**: Type-safe HTTP client with built-in auth and response decoding
+- **SttpRequest trait**: Defines request structure (method, path, params, body) 
+- **SttpResponseDecoder**: Handles response parsing and error handling
+- **ConfiguredJsonCodec**: Used for automatic snake_case ↔ camelCase JSON mapping
+
+### Integration Structure
+Each external API integration follows a consistent pattern:
+
+```
+integrations/{service}/
+├── {Service}Client.scala         # Main client trait + implementation
+├── {Service}Config.scala         # Configuration case class  
+├── domain/{feature}/             # Response models (one case class per file)
+│   └── *.scala                   # Uses @ConfiguredJsonCodec
+└── requests/                     # Request definitions
+    └── *.scala                   # Implements SttpRequest[Req, Res]
+```
+
+### External API Clients
+- **GitHub**: Repository info, commits, members, contents, comparisons
+- **Anthropic**: Claude AI message API for text generation
+- **Telegram**: Bot notifications and messaging
+- **AWS S3**: File storage and retrieval
+
+### JSON and Type Safety
+- All domain models use `@ConfiguredJsonCodec` for automatic JSON encoding/decoding
+- Refined types for validation (NonEmptyString, Email, etc.) in `common/package.scala`
+- Snake case API responses automatically converted to camelCase Scala fields
+
+### NoOp Implementations
+Each integration client provides a NoOp implementation for testing/development when external services are disabled via configuration.

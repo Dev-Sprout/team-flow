@@ -20,6 +20,7 @@ case class Services[F[_]](
     users: UsersService[F],
     agents: AgentsService[F],
     projects: ProjectsService[F],
+    analyses: AnalysesService[F],
   )
 
 object Services {
@@ -45,6 +46,11 @@ object Services {
       users = UsersService.make[F](repositories.users, githubClient),
       agents = AgentsService.make[F](repositories.agents),
       projects = ProjectsService.make[F](
+        repositories.projects,
+        githubClient,
+      ),
+      analyses = AnalysesService.make[F](
+        repositories.analyses,
         repositories.projects,
         repositories.agents,
         repositories.users,

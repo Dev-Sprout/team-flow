@@ -53,3 +53,16 @@ CREATE TABLE agents (
     prompt VARCHAR NOT NULL,
     description VARCHAR NULL
 )
+
+CREATE TABLE analyses (
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    agent_id UUID NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
+    response VARCHAR NOT NULL
+);
+
+CREATE TABLE user_analyses (
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    analysis_id UUID NOT NULL REFERENCES analyses (id) ON DELETE CASCADE
+);
