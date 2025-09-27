@@ -42,6 +42,7 @@ object UsersService {
           rawPass <- Random[F].betweenInt(1000, 9999).map(_.toString)
           hash <- SCrypt.hashpw[F](rawPass)
           isGithubMember <- check(input.username)
+          avatarUrl <- if (isGithubMember) getGithubAvatar(input.username.value) else None.pure[F]
           user = User(
             id = id,
             createdAt = now,
@@ -52,6 +53,7 @@ object UsersService {
             isGithubMember = isGithubMember,
             role = input.role,
             position = input.position,
+            avatarUrl = avatarUrl,
           )
           userAndHash = AccessCredentials(user, hash)
           _ <- usersRepo.create(userAndHash)
@@ -59,6 +61,9 @@ object UsersService {
 
       override def check(username: Username): F[Boolean] =
         githubClient.checkMember(username.value).map(_.isSuccess)
+
+      private def getGithubAvatar(username: String): F[Option[String]] =
+        githubClient.getUser(username).map(user => Some(user.avatarUrl))
 
       override def get(filters: UserFilter): F[PaginatedResponse[User]] =
         usersRepo.get(filters)

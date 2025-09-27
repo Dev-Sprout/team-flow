@@ -33,6 +33,7 @@ CREATE TABLE users (
 	is_github_member BOOLEAN NOT NULL,
     role ROLE NOT NULL,
     "position" JOB_POSITION NULL,
+    avatar_url VARCHAR NULL,
     password VARCHAR NULL,
     deleted_at TIMESTAMP WITH TIME ZONE NULL
 );
@@ -59,7 +60,10 @@ CREATE TABLE analyses (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     agent_id UUID NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
-    response VARCHAR NOT NULL
+    response VARCHAR NOT NULL,
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    duration_seconds BIGINT NULL
 );
 
 CREATE TABLE user_analyses (

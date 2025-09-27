@@ -9,7 +9,8 @@ import teamflow.integrations.github.domain.commits.{CommitDetails, CompareResult
 import teamflow.integrations.github.domain.contents.{Content, ContentLinks}
 import teamflow.integrations.github.domain.members.Member
 import teamflow.integrations.github.domain.repository.Repository
-import teamflow.integrations.github.requests.{CheckMember, GetCommitDetails, GetCommits, GetCompare, GetContents, GetMembers, GetRawContent, GetRepository}
+import teamflow.integrations.github.domain.users.GitHubUser
+import teamflow.integrations.github.requests.{CheckMember, GetCommitDetails, GetCommits, GetCompare, GetContents, GetMembers, GetRawContent, GetRepository, GetUser}
 import teamflow.support.sttp.SttpBackends
 import teamflow.support.sttp.SttpClient
 import teamflow.support.sttp.SttpClientAuth
@@ -22,6 +23,7 @@ trait GithubClient[F[_]] {
   def getCommitDetails(repo: NonEmptyString, sha: String): F[CommitDetails]
   def getMembers: F[List[Member]]
   def checkMember(username: String): F[StatusCode]
+  def getUser(username: String): F[GitHubUser]
   def getRepository(repo: NonEmptyString): F[Repository]
   def getContents(repo: NonEmptyString, path: String, ref: Option[String] = None): F[Content]
   def getRawContent(repo: NonEmptyString, sha: String, path: String): F[Content]
@@ -54,6 +56,9 @@ object GithubClient {
     override def checkMember(username: String): F[StatusCode] =
       client.request(CheckMember(username, config.owner.value, config.token.value))
     
+    override def getUser(username: String): F[GitHubUser] =
+      client.request(GetUser(username, config.token.value))
+    
     override def getRepository(repo: NonEmptyString): F[Repository] =
       client.request(GetRepository(config.owner.value, repo.value, config.token.value))
     
@@ -77,6 +82,44 @@ object GithubClient {
     
     override def checkMember(username: String): F[StatusCode] =
       logger.info(s"Checking member [$username]").map(_ => StatusCode.Ok)
+    
+    override def getUser(username: String): F[GitHubUser] =
+      logger.info(s"Getting user [$username]").map(_ => 
+        GitHubUser(
+          login = username,
+          id = 0L,
+          nodeId = "",
+          avatarUrl = s"https://github.com/$username.png",
+          gravatarId = "",
+          url = s"https://api.github.com/users/$username",
+          htmlUrl = s"https://github.com/$username",
+          followersUrl = s"https://api.github.com/users/$username/followers",
+          followingUrl = s"https://api.github.com/users/$username/following{/other_user}",
+          gistsUrl = s"https://api.github.com/users/$username/gists{/gist_id}",
+          starredUrl = s"https://api.github.com/users/$username/starred{/owner}{/repo}",
+          subscriptionsUrl = s"https://api.github.com/users/$username/subscriptions",
+          organizationsUrl = s"https://api.github.com/users/$username/orgs",
+          reposUrl = s"https://api.github.com/users/$username/repos",
+          eventsUrl = s"https://api.github.com/users/$username/events{/privacy}",
+          receivedEventsUrl = s"https://api.github.com/users/$username/received_events",
+          `type` = "User",
+          siteAdmin = false,
+          name = Some(s"NoOp $username"),
+          company = None,
+          blog = "",
+          location = None,
+          email = Some(s"$username@noop.example.com"),
+          hireable = None,
+          bio = Some("NoOp GitHub client - mock user data"),
+          twitterUsername = None,
+          publicRepos = 0,
+          publicGists = 0,
+          followers = 0,
+          following = 0,
+          createdAt = java.time.ZonedDateTime.now().toString,
+          updatedAt = java.time.ZonedDateTime.now().toString,
+        )
+      )
     
     override def getRepository(repo: NonEmptyString): F[Repository] =
       logger.info(s"Getting repository [$repo]").map(_ => 

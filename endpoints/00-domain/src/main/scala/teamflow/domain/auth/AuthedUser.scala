@@ -23,6 +23,7 @@ sealed trait AuthedUser {
   val isGithubMember: Boolean
   val role: Role
   val position: Option[Position]
+  val avatarUrl: Option[String]
 }
 
 object AuthedUser {
@@ -37,5 +38,6 @@ object AuthedUser {
       isGithubMember: Boolean,
       role: Role,
       position: Option[Position],
+      avatarUrl: Option[String],
     ) extends AuthedUser
 }

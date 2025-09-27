@@ -2,6 +2,8 @@ package teamflow.repositories.sql
 
 import org.typelevel.twiddles.EmptyTuple
 import skunk._
+import skunk.codec.all.date
+import skunk.codec.all.int8
 import skunk.implicits._
 import teamflow.domain.AnalysisId
 import teamflow.domain.UserId
@@ -14,11 +16,12 @@ import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
 private[repositories] object AnalysisSql extends Sql[AnalysisId] {
   private[repositories] val codec: Codec[Analysis] =
-    (id *: zonedDateTime *: ProjectsSql.id *: AgentsSql.id *: nes).to[Analysis]
+    (id *: zonedDateTime *: ProjectsSql.id *: AgentsSql.id *: nes *: date *: date *: int8.opt)
+      .to[Analysis]
 
   val insert: Command[Analysis] =
     sql"""
-      INSERT INTO analyses (id, created_at, project_id, agent_id, response)
+      INSERT INTO analyses (id, created_at, project_id, agent_id, response, date_from, date_to, duration_seconds)
       VALUES ($codec)
     """.command
 
@@ -28,7 +31,7 @@ private[repositories] object AnalysisSql extends Sql[AnalysisId] {
         // If userId filter is present, use INNER JOIN
         void"""
         SELECT
-          a.id, a.created_at, a.project_id, a.agent_id, a.response, COUNT(*) OVER()
+          a.id, a.created_at, a.project_id, a.agent_id, a.response, a.date_from, a.date_to, a.duration_seconds, COUNT(*) OVER()
         FROM analyses a
         INNER JOIN user_analyses ua ON ua.analysis_id = a.id
       """
@@ -36,7 +39,7 @@ private[repositories] object AnalysisSql extends Sql[AnalysisId] {
         // If no userId filter, select directly from analyses
         void"""
         SELECT
-          id, created_at, project_id, agent_id, response, COUNT(*) OVER()
+          id, created_at, project_id, agent_id, response, date_from, date_to, duration_seconds, COUNT(*) OVER()
         FROM analyses a
       """
 
@@ -52,7 +55,7 @@ private[repositories] object AnalysisSql extends Sql[AnalysisId] {
   val findById: Query[AnalysisId, Analysis] =
     sql"""
       SELECT
-        id, created_at, project_id, agent_id, response
+        id, created_at, project_id, agent_id, response, date_from, date_to, duration_seconds
       FROM analyses
       WHERE id = $id
       LIMIT 1
@@ -61,7 +64,7 @@ private[repositories] object AnalysisSql extends Sql[AnalysisId] {
   val findByUserId: Query[UserId, Analysis] =
     sql"""
       SELECT
-        a.id, a.created_at, a.project_id, a.agent_id, a.response
+        a.id, a.created_at, a.project_id, a.agent_id, a.response, a.date_from, a.date_to, a.duration_seconds
       FROM analyses a
       INNER JOIN user_analyses ua ON a.id = ua.analysis_id
       WHERE ua.user_id = ${UsersSql.id}
@@ -73,12 +76,15 @@ private[repositories] object AnalysisSql extends Sql[AnalysisId] {
       UPDATE analyses SET
         project_id = ${ProjectsSql.id},
         agent_id = ${AgentsSql.id},
-        response = $nes
+        response = $nes,
+        date_from = $date,
+        date_to = $date,
+        duration_seconds = ${int8.opt}
       WHERE id = $id
     """
       .command
       .contramap { (a: Analysis) =>
-        a.projectId *: a.agentId *: a.response *: a.id *: EmptyTuple
+        a.projectId *: a.agentId *: a.response *: a.dateFrom *: a.dateTo *: a.durationSeconds *: a.id *: EmptyTuple
       }
 
   val delete: Command[AnalysisId] =

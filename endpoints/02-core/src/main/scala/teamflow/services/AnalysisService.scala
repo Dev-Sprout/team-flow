@@ -93,6 +93,9 @@ object AnalysisService {
               agent = agentsMap(analysis.agentId),
               users = usersMapByAnalysis.getOrElse(analysis.id, List.empty),
               response = analysis.response,
+              dateFrom = analysis.dateFrom,
+              dateTo = analysis.dateTo,
+              durationSeconds = analysis.durationSeconds,
             )
           }
         } yield PaginatedResponse(analysisInfos, analysisPage.total)
@@ -112,6 +115,9 @@ object AnalysisService {
                 agent = agentsMap(analysis.agentId),
                 users = users,
                 response = analysis.response,
+                dateFrom = analysis.dateFrom,
+                dateTo = analysis.dateTo,
+                durationSeconds = analysis.durationSeconds,
               )
             )
           case None => Concurrent[F].pure(None)
@@ -145,6 +151,9 @@ object AnalysisService {
               agent = agentsMap(analysis.agentId),
               users = usersMapByAnalysis.getOrElse(analysis.id, List.empty),
               response = analysis.response,
+              dateFrom = analysis.dateFrom,
+              dateTo = analysis.dateTo,
+              durationSeconds = analysis.durationSeconds,
             )
           }
         } yield analysisInfos
@@ -280,6 +289,9 @@ object AnalysisService {
           agentId: AgentId,
           result: String,
           targetUsers: List[AuthedUser.User],
+          dateFrom: LocalDate,
+          dateTo: LocalDate,
+          durationSeconds: Option[Long],
         ): F[Unit] =
         for {
           now <- Calendar[F].currentZonedDateTime
@@ -289,6 +301,9 @@ object AnalysisService {
             projectId = projectId,
             agentId = agentId,
             response = NonEmptyString.unsafeFrom(result),
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            durationSeconds = durationSeconds,
           )
           _ <- analysesRepo.create(analysis)
           _ <- analysesRepo.linkUsersToAnalysis(targetUsers.map(_.id), id)
@@ -296,6 +311,7 @@ object AnalysisService {
 
       private def processAnalysis(id: AnalysisId, filter: AnalysisInput): F[Unit] =
         (for {
+          start <- Calendar[F].currentDateTime
           targetUsers <- fetchTargetUsers(filter.userIds)
           project <- fetchProjectInfo(filter.projectId)
           agent <- fetchAgentInfo(filter.agentId)
@@ -315,13 +331,32 @@ object AnalysisService {
           analysisResult <- runAIAnalysis(prompt)
           _ <- redisClient.del(s"analysis:$id")
           _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Success.entryName, 10.minutes)
-          _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, analysisResult, targetUsers)
+          end <- Calendar[F].currentDateTime
+          _ <- saveAnalysisResult(
+            id,
+            filter.projectId,
+            filter.agentId,
+            analysisResult,
+            targetUsers,
+            filter.from,
+            filter.to,
+            Some(java.time.Duration.between(start, end).getSeconds),
+          )
         } yield ()).handleErrorWith { error =>
           val errorMessage = s"Analysis failed: ${error.getMessage}"
           for {
             _ <- redisClient.del(s"analysis:$id")
             _ <- redisClient.put(s"analysis:$id", AnalysisStatus.Failed.entryName, 10.minutes)
-            _ <- saveAnalysisResult(id, filter.projectId, filter.agentId, errorMessage, List.empty)
+            _ <- saveAnalysisResult(
+              id,
+              filter.projectId,
+              filter.agentId,
+              errorMessage,
+              List.empty,
+              filter.from,
+              filter.to,
+              None,
+            )
           } yield ()
         }
     }

@@ -1,5 +1,6 @@
 package teamflow.domain.analyses
 
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 import eu.timepit.refined.types.string.NonEmptyString
@@ -19,4 +20,7 @@ case class AnalysisInfo(
     agent: Agent,
     users: List[User],
     response: NonEmptyString,
+    dateFrom: LocalDate,
+    dateTo: LocalDate,
+    durationSeconds: Option[Long],
   )

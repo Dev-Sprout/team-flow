@@ -3,6 +3,7 @@ package teamflow.repositories.sql
 import shapeless.HNil
 import skunk._
 import skunk.codec.all.bool
+import skunk.codec.all.varchar
 import skunk.implicits._
 import teamflow.Username
 import teamflow.domain.UserId
@@ -18,7 +19,7 @@ import teamflow.support.skunk.syntax.all.skunkSyntaxFragmentOps
 
 private[repositories] object UsersSql extends Sql[UserId] {
   private[repositories] val codec =
-    (id *: zonedDateTime *: nes *: nes *: email *: username *: bool *: role *: position.opt)
+    (id *: zonedDateTime *: nes *: nes *: email *: username *: bool *: role *: position.opt *: varchar.opt)
       .to[User]
 
   private val personDecoder: Decoder[AccessCredentials[User]] =
@@ -33,7 +34,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
   val findByLogin: Query[Username, AccessCredentials[User]] =
     sql"""
       SELECT
-        id, created_at, first_name, last_name, email, username, is_github_member, role, position, password
+        id, created_at, first_name, last_name, email, username, is_github_member, role, position, avatar_url, password
       FROM users
       WHERE
         username = $username
@@ -42,7 +43,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
 
   val insert: Command[AccessCredentials[User]] =
     sql"""
-      INSERT INTO users (id, created_at, first_name, last_name, email, username, is_github_member, role, position, password)
+      INSERT INTO users (id, created_at, first_name, last_name, email, username, is_github_member, role, position, avatar_url, password)
       VALUES (
         $id,
         $zonedDateTime,
@@ -53,6 +54,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
         $bool,
         $role,
         ${position.opt},
+        ${varchar.opt},
         $passwordHash
       )
     """
@@ -61,7 +63,9 @@ private[repositories] object UsersSql extends Sql[UserId] {
         u.data.id *: u
           .data
           .createdAt *: u.data.firstName *: u.data.lastName *: u.data.email *: u.data.username *:
-          u.data.isGithubMember *: u.data.role *: u.data.position *: u.password *: EmptyTuple
+          u.data.isGithubMember *: u
+            .data
+            .role *: u.data.position *: u.data.avatarUrl *: u.password *: EmptyTuple
       }
 
   def getByFilter(filter: UserFilter): AppliedFragment = {
@@ -75,7 +79,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
     val query: AppliedFragment =
       void"""
         SELECT
-          id, created_at, first_name, last_name, email, username, is_github_member, role, position, COUNT(*) OVER()
+          id, created_at, first_name, last_name, email, username, is_github_member, role, position, avatar_url, COUNT(*) OVER()
         FROM users
         WHERE deleted_at IS NULL
       """
@@ -86,7 +90,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
   val findById: Query[UserId, User] =
     sql"""
       SELECT
-        id, created_at, first_name, last_name, email, username, is_github_member, role, position
+        id, created_at, first_name, last_name, email, username, is_github_member, role, position, avatar_url
       FROM users
       WHERE id = $id AND deleted_at IS NULL
       LIMIT 1
@@ -94,7 +98,7 @@ private[repositories] object UsersSql extends Sql[UserId] {
 
   def findByIds(ids: List[UserId]): Query[ids.type, User] =
     sql"""
-      SELECT id, created_at, first_name, last_name, email, username, is_github_member, role, position
+      SELECT id, created_at, first_name, last_name, email, username, is_github_member, role, position, avatar_url
       FROM users
       WHERE id IN (${id.values.list(ids)}) AND deleted_at IS NULL
     """.query(codec)
@@ -108,12 +112,13 @@ private[repositories] object UsersSql extends Sql[UserId] {
         username = $username,
         is_github_member = $bool,
         role = $role,
-        position = ${position.opt}
+        position = ${position.opt},
+        avatar_url = ${varchar.opt}
       WHERE id = $id
     """
       .command
       .contramap { (u: User) =>
-        u.firstName *: u.lastName *: u.email *: u.username *: u.isGithubMember *: u.role *: u.position *: u.id *: EmptyTuple
+        u.firstName *: u.lastName *: u.email *: u.username *: u.isGithubMember *: u.role *: u.position *: u.avatarUrl *: u.id *: EmptyTuple
       }
 
   val delete: Command[UserId] =

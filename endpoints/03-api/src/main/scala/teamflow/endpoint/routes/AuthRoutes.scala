@@ -44,6 +44,7 @@ final case class AuthRoutes[F[_]: Monad: JsonDecoder: MonadThrow](
           user.isGithubMember,
           user.role,
           user.position,
+          user.avatarUrl,
         )
       )
   }
